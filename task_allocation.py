@@ -55,6 +55,22 @@ class SubTaskDetaching:
         return True
 
 
+class TaskCharge():
+    def __init__(self, station):
+        self.subtasks = [
+                SubTaskDriving(station),
+                SubTaskCharging()]
+
+
+class TaskTrolly():
+    def __init__(self, source, destination):
+        self.subtasks = [
+                SubTaskDriving(source),
+                SubTaskAttaching(),
+                SubTaskDriving(destination),
+                SubTaskDetaching()]
+
+
 class Robot:
     def __init__(self, location):
         self.location = location

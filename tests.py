@@ -2,6 +2,7 @@
 
 import unittest
 from task_allocation import Robot
+from task_allocation import TaskTrolly, TaskCharge
 from task_allocation import SubTaskDriving, SubTaskCharging
 from task_allocation import SubTaskAttaching, SubTaskDetaching
 
@@ -85,6 +86,27 @@ class TestSubTaskDone(unittest.TestCase):
 
         # detaching is always done, we dont keep state about it
         self.assertTrue(detaching.is_done(robot))
+
+
+class TestTaskCharge(unittest.TestCase):
+    def test_task_charge(self):
+        task = TaskCharge(7)
+        self.assertIsInstance(task.subtasks[0], SubTaskDriving)
+        self.assertIsInstance(task.subtasks[1], SubTaskCharging)
+
+        self.assertEqual(task.subtasks[0].destination, 7)
+
+
+class TestTaskTrolly(unittest.TestCase):
+    def test_task_charge(self):
+        task = TaskTrolly(7, 9)
+        self.assertIsInstance(task.subtasks[0], SubTaskDriving)
+        self.assertIsInstance(task.subtasks[1], SubTaskAttaching)
+        self.assertIsInstance(task.subtasks[2], SubTaskDriving)
+        self.assertIsInstance(task.subtasks[3], SubTaskDetaching)
+
+        self.assertEqual(task.subtasks[0].destination, 7)
+        self.assertEqual(task.subtasks[2].destination, 9)
 
 
 class TestRobot(unittest.TestCase):
