@@ -2,6 +2,49 @@
 
 import unittest
 from task_allocation import Robot
+from task_allocation import SubTaskDriving, SubTaskCharging
+from task_allocation import SubTaskAttaching, SubTaskDetaching
+
+
+class TestSubTask(unittest.TestCase):
+    def test_driving_done(self):
+        robot = Robot(6)
+        driving = SubTaskDriving(7)
+
+        self.assertFalse(driving.is_done(robot))
+
+        # drive to the location
+        robot.location = 7
+        self.assertTrue(driving.is_done(robot))
+
+    def test_charging_done(self):
+        robot = Robot(6)
+        charging = SubTaskCharging()
+
+        # robots start fully charged
+        self.assertTrue(charging.is_done(robot))
+
+        # drain the battery a bit
+        robot.kwh_used = 0.001
+        self.assertFalse(charging.is_done(robot))
+
+        # recharge the battery
+        robot.kwh_used = 0
+        self.assertTrue(charging.is_done(robot))
+
+    def test_attaching_done(self):
+        robot = Robot(6)
+        attaching = SubTaskAttaching()
+
+        # attaching is always done, we dont keep state about it
+        self.assertTrue(attaching.is_done(robot))
+
+    def test_detaching_done(self):
+        robot = Robot(6)
+        detaching = SubTaskDetaching()
+
+        # detaching is always done, we dont keep state about it
+        self.assertTrue(detaching.is_done(robot))
 
 
 class TestRobot(unittest.TestCase):
