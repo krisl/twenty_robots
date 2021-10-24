@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import unittest
-from task_allocation import Robot
-from task_allocation import TaskTrolly, TaskCharge
+from task_allocation import Robot, TaskManager
+from task_allocation import TaskTrolly, TaskCharge, TaskStandby
 from task_allocation import SubTaskDriving, SubTaskCharging
 from task_allocation import SubTaskAttaching, SubTaskDetaching
 
@@ -88,9 +88,16 @@ class TestSubTaskDone(unittest.TestCase):
         self.assertTrue(detaching.is_done(robot))
 
 
+class TestTaskStandby(unittest.TestCase):
+    def test_task_standby(self):
+        task = TaskStandby()
+        self.assertTrue(task.is_standby())
+
+
 class TestTaskCharge(unittest.TestCase):
     def test_task_charge(self):
         task = TaskCharge(7)
+        self.assertFalse(task.is_standby())
         self.assertIsInstance(task.subtasks[0], SubTaskDriving)
         self.assertIsInstance(task.subtasks[1], SubTaskCharging)
 
@@ -100,6 +107,7 @@ class TestTaskCharge(unittest.TestCase):
 class TestTaskTrolly(unittest.TestCase):
     def test_task_charge(self):
         task = TaskTrolly(7, 9)
+        self.assertFalse(task.is_standby())
         self.assertIsInstance(task.subtasks[0], SubTaskDriving)
         self.assertIsInstance(task.subtasks[1], SubTaskAttaching)
         self.assertIsInstance(task.subtasks[2], SubTaskDriving)
@@ -131,6 +139,50 @@ class TestRobot(unittest.TestCase):
         # we cant use negative amounts
         robot.kwh_used = -10
         self.assertEqual(robot.kwh_available(), 100)
+
+    def test_is_idle(self):
+        robot = Robot(6)
+        # new robots are idle
+        self.assertTrue(robot.is_idle())
+
+
+class TestTaskManager(unittest.TestCase):
+    def test_basic_functions(self):
+        task_manager = TaskManager({5: None})
+        self.assertEqual(task_manager.charging_stations, {5: None})
+        self.assertEqual(task_manager.robots, [])
+        self.assertEqual(task_manager.tasks, set())
+
+        robotAt6 = Robot(6)
+        task_manager.add_robot(robotAt6)
+        self.assertEqual(task_manager.robots, [robotAt6])
+
+        robotAt16 = Robot(16)
+        task_manager.add_robot(robotAt16)
+        self.assertEqual(task_manager.robots, [robotAt6, robotAt16])
+
+        task_chargeAt7 = TaskCharge(7)
+        task_manager.add_task(task_chargeAt7)
+        self.assertEqual(task_manager.tasks, set([task_chargeAt7]))
+
+        task_chargeAt17 = TaskCharge(17)
+        task_manager.add_task(task_chargeAt17)
+        self.assertEqual(task_manager.tasks, set([task_chargeAt7,
+                                                  task_chargeAt17]))
+
+    def test_get_idle_robots(self):
+        task_manager = TaskManager({5: None})
+
+        robotAt6 = Robot(6)
+        robotAt6.kwh_used = 55  # drain the battry of this robot
+        task_manager.add_robot(robotAt6)
+
+        robotAt16 = Robot(16)
+        task_manager.add_robot(robotAt16)
+
+        flat_robots, work_robots = task_manager.get_idle_robots()
+        self.assertEqual(flat_robots, [robotAt6])
+        self.assertEqual(work_robots, [robotAt16])
 
 
 if __name__ == '__main__':

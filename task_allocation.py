@@ -55,14 +55,19 @@ class SubTaskDetaching:
         return True
 
 
-class TaskCharge():
+class TaskBase:
+    def is_standby(self):
+        return False
+
+
+class TaskCharge(TaskBase):
     def __init__(self, station):
         self.subtasks = [
                 SubTaskDriving(station),
                 SubTaskCharging()]
 
 
-class TaskTrolly():
+class TaskTrolly(TaskBase):
     def __init__(self, source, destination):
         self.subtasks = [
                 SubTaskDriving(source),
@@ -71,11 +76,47 @@ class TaskTrolly():
                 SubTaskDetaching()]
 
 
+class TaskStandby(TaskBase):
+    def is_standby(self):
+        return True
+
+
 class Robot:
     def __init__(self, location):
         self.location = location
         self.kwh_max = 100
         self.kwh_used = 0
+        self.current_task = TaskStandby()
 
     def kwh_available(self):
         return min(self.kwh_max, max(0, self.kwh_max - self.kwh_used))
+
+    def is_idle(self):
+        return self.current_task.is_standby()
+
+    def needs_charge(self):
+        return self.kwh_available() < 50.5  # we charge when half flat
+
+
+class TaskManager:
+    def __init__(self, charging_stations):
+        self.charging_stations = charging_stations
+        self.robots = []
+        self.tasks = set()
+
+    def add_robot(self, robot):
+        self.robots.append(robot)
+
+    def add_task(self, task):
+        self.tasks.add(task)
+
+    def get_idle_robots(self):
+        flat_robots, work_robots = [], []
+        for robot in self.robots:
+            if robot.is_idle():
+                if robot.needs_charge():
+                    flat_robots.append(robot)
+                else:
+                    work_robots.append(robot)
+
+        return flat_robots, work_robots
