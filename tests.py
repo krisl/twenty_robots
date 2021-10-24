@@ -6,7 +6,47 @@ from task_allocation import SubTaskDriving, SubTaskCharging
 from task_allocation import SubTaskAttaching, SubTaskDetaching
 
 
-class TestSubTask(unittest.TestCase):
+class TestSubTaskCostCalculation(unittest.TestCase):
+    def test_driving_cost(self):
+        robot = Robot(6)
+
+        driving = SubTaskDriving(7)
+        self.assertEqual(driving.calc_cost(robot), (1, 0.2))
+
+        driving = SubTaskDriving(5)
+        self.assertEqual(driving.calc_cost(robot), (1, 0.2))
+
+        driving = SubTaskDriving(4)
+        self.assertEqual(driving.calc_cost(robot), (2, 0.4))
+
+        driving = SubTaskDriving(8)
+        self.assertEqual(driving.calc_cost(robot), (2, 0.4))
+
+    def test_charging_cost(self):
+        robot = Robot(6)
+        charging = SubTaskCharging()
+
+        # robots start fully charged
+        self.assertEqual(charging.calc_cost(robot), (0, 0))
+
+        # drain the battery a little
+        robot.kwh_used = 1
+        self.assertEqual(charging.calc_cost(robot), (1, -1))
+
+        # drain the battery a lot
+        robot.kwh_used = 100
+        self.assertEqual(charging.calc_cost(robot), (100, -100))
+
+    def test_attaching_detaching_cost(self):
+        robot = Robot(6)
+        attaching = SubTaskAttaching()
+        detaching = SubTaskDetaching()
+
+        self.assertEqual(attaching.calc_cost(robot), (1, 0.3))
+        self.assertEqual(detaching.calc_cost(robot), (1, 0.1))
+
+
+class TestSubTaskDone(unittest.TestCase):
     def test_driving_done(self):
         robot = Robot(6)
         driving = SubTaskDriving(7)
