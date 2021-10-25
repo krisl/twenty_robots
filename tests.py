@@ -245,6 +245,53 @@ class TestRobot(unittest.TestCase):
         # new robots are idle
         self.assertTrue(robot.is_idle())
 
+    def test_robot_with_trolly_task(self):
+        robot = Robot(52)
+        task_trolly = TaskTrolly(10, 25)
+        robot.assign_task(task_trolly)
+        self.assertEqual(robot.kwh_used, 0.0)
+        robot.tick()
+        self.assertEqual(robot.kwh_used, 0.2)
+
+    def test_robot_with_charging_task(self):
+        robot = Robot(6)
+        robot.kwh_used = 15
+        task_charge = TaskCharge(1)
+        robot.assign_task(task_charge)
+
+        subtask = robot.tick()
+        self.assertIsInstance(subtask, SubTaskDriving)
+        self.assertAlmostEqual(robot.kwh_used, 15 + 0.2)
+
+        subtask = robot.tick()
+        self.assertIsInstance(subtask, SubTaskDriving)
+        self.assertAlmostEqual(robot.kwh_used, 15 + 0.4)
+
+        subtask = robot.tick()
+        self.assertIsInstance(subtask, SubTaskDriving)
+        self.assertAlmostEqual(robot.kwh_used, 15 + 0.6)
+
+        subtask = robot.tick()
+        self.assertIsInstance(subtask, SubTaskDriving)
+        self.assertAlmostEqual(robot.kwh_used, 15 + 0.8)
+
+        subtask = robot.tick()
+        self.assertIsInstance(subtask, SubTaskDriving)
+        self.assertAlmostEqual(robot.kwh_used, 15 + 1.0)
+
+        subtask = robot.tick()
+        self.assertIsInstance(subtask, SubTaskCharging)
+        self.assertAlmostEqual(robot.kwh_used, 15 + 1.0 - 1)
+
+        for c in range(2, 17):
+            subtask = robot.tick()
+            self.assertIsInstance(subtask, SubTaskCharging)
+            self.assertAlmostEqual(robot.kwh_used, 15 + 1.0 - c)
+
+        subtask = robot.tick()
+        self.assertEqual(subtask, None)
+        self.assertAlmostEqual(robot.kwh_used, 0)
+
 
 class TestTaskManager(unittest.TestCase):
     def test_basic_functions(self):

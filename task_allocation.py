@@ -187,6 +187,28 @@ class Robot:
         self.kwh_used = 0
         self.current_task = TaskStandby()
 
+    def tick(self):
+        subtask = self.current_task.tick(self)
+
+        if subtask is None:
+            self.current_task = TaskStandby()
+
+        # prevent overcharging
+        if (self.kwh_used < 0):
+            self.kwh_used = 0
+
+        # battery protection
+        if (self.kwh_used > self.kwh_max):
+            self.assign_task(TaskStandby())
+
+        return subtask
+
+    def assign_task(self, task):
+        if not self.is_idle():
+            print("interrupting current task")
+
+        self.current_task = task
+
     def kwh_available(self):
         return min(self.kwh_max, max(0, self.kwh_max - self.kwh_used))
 
