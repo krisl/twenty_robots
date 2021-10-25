@@ -184,6 +184,21 @@ class TestTaskManager(unittest.TestCase):
         self.assertEqual(flat_robots, [robotAt6])
         self.assertEqual(work_robots, [robotAt16])
 
+    def test_get_free_charging_tasks(self):
+        task_manager = TaskManager({5: None, 6: 'some robot', 7: None})
+
+        charge_tasks = task_manager.get_free_charge_tasks()
+        self.assertEqual(len(charge_tasks), 2)
+
+        taskA, taskB = charge_tasks
+        self.assertIsInstance(taskA, TaskCharge)
+        self.assertIsInstance(taskB, TaskCharge)
+
+        # order of tasks unimportant
+        self.assertEqual(set([taskA.subtasks[0].destination,
+                              taskB.subtasks[0].destination]),
+                         set([5, 7]))
+
 
 if __name__ == '__main__':
     unittest.main()

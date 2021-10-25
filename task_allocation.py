@@ -120,3 +120,8 @@ class TaskManager:
                     work_robots.append(robot)
 
         return flat_robots, work_robots
+
+    def get_free_charge_tasks(self):
+        return [TaskCharge(station)
+                for station, robot in self.charging_stations.items()
+                if robot is None]
