@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+from copy import copy
+
+
 class SubTaskDriving:
     # all robots use the same power to drive
     power_per_tick = 0.2
@@ -8,10 +11,15 @@ class SubTaskDriving:
         self.destination = destination
 
     # robot -> (time_cost, power_cost)
-    def calc_cost(self, robot):
+    def calc_cost(self, mutable_robot):
         # conveniently, all robots move 1 unit distance / 1 unit time
-        time = abs(robot.location - self.destination)
+        time = abs(mutable_robot.location - self.destination)
         power = time * self.power_per_tick
+
+        # update robot with resouce usage
+        mutable_robot.kwh_used += power
+        mutable_robot.location = self.destination
+
         return (time, power)
 
     def is_done(self, robot):
@@ -23,10 +31,14 @@ class SubTaskCharging:
     power_per_tick = -1
 
     # robot -> (time_cost, power_cost)
-    def calc_cost(self, robot):
+    def calc_cost(self, mutable_robot):
         # conveniently, all robots charge at same rate
-        time = max(0, robot.kwh_used)
+        time = max(0, mutable_robot.kwh_used)
         power = time * self.power_per_tick
+
+        # update robot with resouce usage
+        mutable_robot.kwh_used = 0  # recharged
+
         return (time, power)
 
     def is_done(self, robot):
@@ -37,7 +49,8 @@ class SubTaskAttaching:
     power_per_tick = 0.3
 
     # robot -> (time_cost, power_cost)
-    def calc_cost(self, robot):
+    def calc_cost(self, mutable_robot):
+        mutable_robot.kwh_used += self.power_per_tick
         return (1, self.power_per_tick)
 
     def is_done(self, robot):
@@ -48,7 +61,8 @@ class SubTaskDetaching:
     power_per_tick = 0.1
 
     # robot -> (time_cost, power_cost)
-    def calc_cost(self, robot):
+    def calc_cost(self, mutable_robot):
+        mutable_robot.kwh_used += self.power_per_tick
         return (1, self.power_per_tick)
 
     def is_done(self, robot):
@@ -56,6 +70,19 @@ class SubTaskDetaching:
 
 
 class TaskBase:
+    # robot -> (start_time_cost, max_power_cost)
+    def calc_costs(self, robot_):
+        robot = copy(robot_)  # robot is mutatated during calculation
+        costs = [st.calc_cost(robot) for st in self.subtasks]
+
+        # we want the robot specific independant cost (start cost)
+        time_to_first_subtask = costs[0][0]
+
+        # and the max power consumption (assume charging is last)
+        max_kwh_used = sum([c[1] for c in costs if c[1] > 0])
+
+        return (time_to_first_subtask, max_kwh_used)
+
     def is_standby(self):
         return False
 

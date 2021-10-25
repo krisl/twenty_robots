@@ -15,13 +15,13 @@ class TestSubTaskCostCalculation(unittest.TestCase):
         self.assertEqual(driving.calc_cost(robot), (1, 0.2))
 
         driving = SubTaskDriving(5)
-        self.assertEqual(driving.calc_cost(robot), (1, 0.2))
+        self.assertEqual(driving.calc_cost(robot), (2, 0.4))
 
         driving = SubTaskDriving(4)
-        self.assertEqual(driving.calc_cost(robot), (2, 0.4))
+        self.assertEqual(driving.calc_cost(robot), (1, 0.2))
 
         driving = SubTaskDriving(8)
-        self.assertEqual(driving.calc_cost(robot), (2, 0.4))
+        self.assertEqual(driving.calc_cost(robot), (4, 0.8))
 
     def test_charging_cost(self):
         robot = Robot(6)
@@ -37,6 +37,10 @@ class TestSubTaskCostCalculation(unittest.TestCase):
         # drain the battery a lot
         robot.kwh_used = 100
         self.assertEqual(charging.calc_cost(robot), (100, -100))
+
+        # robot is mutated to fully charged after calculation
+        self.assertEqual(robot.kwh_used, 0)
+        self.assertEqual(charging.calc_cost(robot), (0, 0))
 
     def test_attaching_detaching_cost(self):
         robot = Robot(6)
@@ -86,6 +90,30 @@ class TestSubTaskDone(unittest.TestCase):
 
         # detaching is always done, we dont keep state about it
         self.assertTrue(detaching.is_done(robot))
+
+
+class TestTaskCommon(unittest.TestCase):
+    def test_cost_calculation_charge(self):
+        robot = Robot(6)
+        task = TaskCharge(10)
+
+        costs = task.calc_costs(robot)
+        distance = 10 - 6
+        self.assertEqual(costs, (distance, distance * 0.2))
+
+    def test_cost_calculation_trolly(self):
+        robot = Robot(6)
+        task = TaskTrolly(1, 3)
+
+        costs = task.calc_costs(robot)
+        # time to start is driving distance 10 - 6
+        # and max power usage is driving distance * consumption rate
+        dist_to_trolly = 6 - 1
+        dist_to_dest = 3 - 1
+        distance = dist_to_trolly + dist_to_dest
+        grab = 0.3 + 0.1  # attaching and detaching
+        self.assertEqual(costs, (dist_to_trolly,
+                                 distance * 0.2 + grab))
 
 
 class TestTaskStandby(unittest.TestCase):
