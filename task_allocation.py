@@ -44,16 +44,20 @@ def match_robots_to_tasks(robots_, tasks):
 
 class SubTaskDriving:
     # all robots use the same power to drive
-    power_per_tick = 0.2
+    kwh_per_tick = 0.2
 
     def __init__(self, destination):
         self.destination = destination
+
+    def tick(self, robot):
+        robot.kwh_used += self.kwh_per_tick
+        robot.location += 1 if robot.location < self.destination else -1
 
     # robot -> (time_cost, power_cost)
     def calc_cost(self, mutable_robot):
         # conveniently, all robots move 1 unit distance / 1 unit time
         time = abs(mutable_robot.location - self.destination)
-        power = time * self.power_per_tick
+        power = time * self.kwh_per_tick
 
         # update robot with resouce usage
         mutable_robot.kwh_used += power
@@ -67,13 +71,20 @@ class SubTaskDriving:
 
 class SubTaskCharging:
     # all robots charge 1kwh / 1 unit time
-    power_per_tick = -1
+    kwh_per_tick = -1
+
+    def tick(self, robot):
+        # lets not overcharge
+        if (robot.kwh_used + self.kwh_per_tick < 0):
+            robot.kwh_used = 0
+        else:
+            robot.kwh_used += self.kwh_per_tick
 
     # robot -> (time_cost, power_cost)
     def calc_cost(self, mutable_robot):
         # conveniently, all robots charge at same rate
         time = max(0, mutable_robot.kwh_used)
-        power = time * self.power_per_tick
+        power = time * self.kwh_per_tick
 
         # update robot with resouce usage
         mutable_robot.kwh_used = 0  # recharged
@@ -85,30 +96,50 @@ class SubTaskCharging:
 
 
 class SubTaskAttaching:
-    power_per_tick = 0.3
+    kwh_per_tick = 0.3
+
+    def tick(self, robot):
+        robot.kwh_used += self.kwh_per_tick
 
     # robot -> (time_cost, power_cost)
     def calc_cost(self, mutable_robot):
-        mutable_robot.kwh_used += self.power_per_tick
-        return (1, self.power_per_tick)
+        mutable_robot.kwh_used += self.kwh_per_tick
+        return (1, self.kwh_per_tick)
 
     def is_done(self, robot):
         return True
 
 
 class SubTaskDetaching:
-    power_per_tick = 0.1
+    kwh_per_tick = 0.1
+
+    def tick(self, robot):
+        robot.kwh_used += self.kwh_per_tick
 
     # robot -> (time_cost, power_cost)
     def calc_cost(self, mutable_robot):
-        mutable_robot.kwh_used += self.power_per_tick
-        return (1, self.power_per_tick)
+        mutable_robot.kwh_used += self.kwh_per_tick
+        return (1, self.kwh_per_tick)
 
     def is_done(self, robot):
         return True
 
 
 class TaskBase:
+    def __init__(self):
+        self.subtask_index = 0
+
+    def tick(self, robot):
+        if len(self.subtasks) > self.subtask_index:
+            subtask = self.subtasks[self.subtask_index]
+            subtask.tick(robot)
+
+            if subtask.is_done(robot):
+                self.subtask_index += 1
+
+            return subtask
+        return None
+
     # robot -> (start_time_cost, max_power_cost)
     def calc_costs(self, robot_):
         robot = copy(robot_)  # robot is mutatated during calculation
@@ -128,6 +159,7 @@ class TaskBase:
 
 class TaskCharge(TaskBase):
     def __init__(self, station):
+        super().__init__()
         self.subtasks = [
                 SubTaskDriving(station),
                 SubTaskCharging()]
@@ -135,6 +167,7 @@ class TaskCharge(TaskBase):
 
 class TaskTrolly(TaskBase):
     def __init__(self, source, destination):
+        super().__init__()
         self.subtasks = [
                 SubTaskDriving(source),
                 SubTaskAttaching(),

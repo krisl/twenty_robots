@@ -152,6 +152,41 @@ class TestTaskCommon(unittest.TestCase):
         self.assertEqual(costs, (dist_to_trolly,
                                  distance * 0.2 + grab))
 
+    def test_task_charge_transitioning(self):
+        task_charge = TaskCharge(10)
+        r = Robot(6)
+        r.kwh_used = 15
+
+        # travel from location 10 to locaiton 6
+        for _ in range(10 - 6):
+            self.assertIsInstance(task_charge.tick(r), SubTaskDriving)
+
+        # recharge the initial kwh_used
+        for _ in range(15):
+            self.assertIsInstance(task_charge.tick(r), SubTaskCharging)
+
+        # plus one extra charge tick for the power we used travelling
+        self.assertIsInstance(task_charge.tick(r), SubTaskCharging)
+
+        # and were done
+        self.assertEqual(task_charge.tick(r), None)
+
+    def test_task_trolly_transitioning(self):
+        task = TaskTrolly(1, 3)
+        r = Robot(6)
+
+        for _ in range(6 - 1):
+            self.assertIsInstance(task.tick(r), SubTaskDriving)
+
+        self.assertIsInstance(task.tick(r), SubTaskAttaching)
+
+        for _ in range(3 - 1):
+            self.assertIsInstance(task.tick(r), SubTaskDriving)
+
+        self.assertIsInstance(task.tick(r), SubTaskDetaching)
+
+        self.assertEqual(task.tick(r), None)
+
 
 class TestTaskStandby(unittest.TestCase):
     def test_task_standby(self):
