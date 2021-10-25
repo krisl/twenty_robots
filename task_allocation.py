@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from copy import copy
+import random
 
 
 # robot, [tasks] -> (task, (start cost, max power cost))
@@ -168,6 +169,14 @@ class TaskCharge(TaskBase):
     def get_station(self):
         return self.subtasks[0].destination
 
+    def __str__(self):
+        return "TaskCharge loc: %s" % (
+            self.get_station()
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class TaskTrolly(TaskBase):
     def __init__(self, source, destination):
@@ -178,6 +187,16 @@ class TaskTrolly(TaskBase):
                 SubTaskDriving(destination),
                 SubTaskDetaching()]
 
+    def __str__(self):
+        return "TaskTrolly %s from %s to %s" % (
+            id(self),
+            self.subtasks[0].destination,
+            self.subtasks[2].destination
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class TaskStandby(TaskBase):
     def __init__(self):
@@ -185,6 +204,12 @@ class TaskStandby(TaskBase):
 
     def is_standby(self):
         return True
+
+    def __str__(self):
+        return "TaskStandby"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class Robot:
@@ -224,6 +249,17 @@ class Robot:
 
     def needs_charge(self):
         return self.kwh_available() < 50.5  # we charge when half flat
+
+    def __str__(self):
+        return "Robot %s loc: %s chrg: %skwh %s" % (
+            id(self),
+            "{: <2}".format(self.location),
+            "{:3.2f}".format(self.kwh_available()).rjust(6),
+            self.current_task
+        )
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class TaskManager:
@@ -278,3 +314,46 @@ class TaskManager:
                     self.charging_stations[station] = None
 
         return ticks
+
+    def show_robots(self):
+        print("==== Robots ====")
+        for robot in self.robots:
+            print(robot)
+
+
+if __name__ == '__main__':
+
+    # five charging stations
+    QTY_STATIONS = 5
+    charging_stations = {
+        k: None for k in random.sample(range(0, 99), QTY_STATIONS)
+    }
+    print(charging_stations)
+
+    tm = TaskManager(charging_stations)
+
+    # some number of robots robots
+    QTY_ROBOTS = 20
+    for location in random.sample(range(0, 99), QTY_ROBOTS):
+        tm.add_robot(Robot(location))
+
+    # a few hundred tasks
+    QTY_TASKS = 900
+    for _ in range(QTY_TASKS):
+        src, dst = random.sample(range(0, 99), 2)
+        tm.add_task(TaskTrolly(src, dst))
+
+    tm.show_robots()
+
+    tick_count = 0
+    while True:
+        step = tm.tick()
+        tick_count += 1
+        tm.show_robots()
+        if len(tm.tasks) == 0:
+            if all(isinstance(robot.current_task, TaskStandby)
+                    for (robot, _) in step):
+                break
+
+    print("Completed %s tasks with %s robots in %s ticks"
+          % (QTY_TASKS, QTY_ROBOTS, tick_count))
