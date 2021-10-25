@@ -15,6 +15,33 @@ def min_cost_task(robot, tasks):
     return min(feasible, key=lambda tc: tc[1], default=(None, None))
 
 
+# [robot], [task] -> [(robot, task)]
+def match_robots_to_tasks(robots_, tasks):
+    # copy arguments, we will mutate them
+    robots = robots_.copy()
+    results = []
+
+    while (len(robots) > 0 and len(tasks) > 0):
+        # calc lowest cost task for each robot
+        # [(r, (t, c)),...]
+        # [(r, None)...]
+        task_costs = map(lambda r: (r, min_cost_task(r, tasks)),
+                         robots)
+
+        # choose pair with highest cost of set of lowest costs
+        robot, (task, _) = max(task_costs, key=lambda z: z[1][1])
+
+        # a task is returned if its feasible
+        if task is not None:
+            # add chosen pair to result set
+            results.append((robot, task))
+            tasks.remove(task)
+
+        robots.remove(robot)
+
+    return results
+
+
 class SubTaskDriving:
     # all robots use the same power to drive
     power_per_tick = 0.2

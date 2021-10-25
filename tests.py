@@ -5,7 +5,7 @@ from task_allocation import Robot, TaskManager
 from task_allocation import TaskTrolly, TaskCharge, TaskStandby
 from task_allocation import SubTaskDriving, SubTaskCharging
 from task_allocation import SubTaskAttaching, SubTaskDetaching
-from task_allocation import min_cost_task
+from task_allocation import min_cost_task, match_robots_to_tasks
 
 
 class TestUtilityFunctions(unittest.TestCase):
@@ -24,6 +24,24 @@ class TestUtilityFunctions(unittest.TestCase):
 
         results = min_cost_task(robot, [charge_task_far])
         self.assertEqual(results, (None, None))
+
+    def test_match_robots_to_tasks(self):
+        robotAt6 = Robot(6)
+        robotAt16 = Robot(16)
+        robotAt6.kwh_used = 98
+        robotAt16.kwh_used = 98
+
+        charge_task_at1 = TaskCharge(1)
+        charge_task_at7 = TaskCharge(7)
+
+        matchA, matchB = match_robots_to_tasks(
+                                [robotAt6, robotAt16],
+                                [charge_task_at1, charge_task_at7])
+
+        # order unimportant
+        self.assertEqual(set([matchA, matchB]),
+                         set([(robotAt16, charge_task_at7),
+                              (robotAt6, charge_task_at1)]))
 
 
 class TestSubTaskCostCalculation(unittest.TestCase):
