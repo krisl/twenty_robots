@@ -3,6 +3,18 @@
 from copy import copy
 
 
+# robot, [tasks] -> (task, (start cost, max power cost))
+def min_cost_task(robot, tasks):
+    tasks_costs = map(lambda t: (t, t.calc_costs(robot)), tasks)
+    # choose task with minimum start cost
+
+    # filter out those that we dont have enough power to perform
+    feasible = filter(lambda c: robot.kwh_available() >= c[1][1],
+                      tasks_costs)
+
+    return min(feasible, key=lambda tc: tc[1], default=(None, None))
+
+
 class SubTaskDriving:
     # all robots use the same power to drive
     power_per_tick = 0.2

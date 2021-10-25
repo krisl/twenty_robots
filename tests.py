@@ -5,6 +5,25 @@ from task_allocation import Robot, TaskManager
 from task_allocation import TaskTrolly, TaskCharge, TaskStandby
 from task_allocation import SubTaskDriving, SubTaskCharging
 from task_allocation import SubTaskAttaching, SubTaskDetaching
+from task_allocation import min_cost_task
+
+
+class TestUtilityFunctions(unittest.TestCase):
+    def test_min_cost_task(self):
+        robot = Robot(6)
+        robot.kwh_used = 98
+
+        charge_task_far = TaskCharge(100)
+        charge_task_near = TaskCharge(7)
+
+        results = min_cost_task(robot,
+                                [charge_task_far, charge_task_near])
+
+        # we dont have enough power for charge_task_far
+        self.assertEqual(results[0], charge_task_near)
+
+        results = min_cost_task(robot, [charge_task_far])
+        self.assertEqual(results, (None, None))
 
 
 class TestSubTaskCostCalculation(unittest.TestCase):
