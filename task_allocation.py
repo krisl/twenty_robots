@@ -127,6 +127,7 @@ class SubTaskDetaching:
 
 class TaskBase:
     def __init__(self):
+        self.subtasks = []
         self.subtask_index = 0
 
     def tick(self, robot):
@@ -164,6 +165,9 @@ class TaskCharge(TaskBase):
                 SubTaskDriving(station),
                 SubTaskCharging()]
 
+    def get_station(self):
+        return self.subtasks[0].destination
+
 
 class TaskTrolly(TaskBase):
     def __init__(self, source, destination):
@@ -176,6 +180,9 @@ class TaskTrolly(TaskBase):
 
 
 class TaskStandby(TaskBase):
+    def __init__(self):
+        super().__init__()
+
     def is_standby(self):
         return True
 
@@ -246,3 +253,28 @@ class TaskManager:
         return [TaskCharge(station)
                 for station, robot in self.charging_stations.items()
                 if robot is None]
+
+    def tick(self):
+        flat_robots, work_robots = self.get_idle_robots()
+        charge_tasks = self.get_free_charge_tasks()
+
+        for robot, task in match_robots_to_tasks(flat_robots, charge_tasks):
+            robot.assign_task(task)
+            self.charging_stations[task.get_station()] = robot
+
+        for robot, task in match_robots_to_tasks(work_robots, self.tasks):
+            robot.assign_task(task)
+
+        # march time forward
+        ticks = []
+        for robot in self.robots:
+            subtask = robot.tick()
+            ticks.append((robot, subtask))
+
+            # finished charging, free up the station
+            if isinstance(subtask, SubTaskCharging):
+                if subtask.is_done(robot):
+                    station = robot.current_task.get_station()
+                    self.charging_stations[station] = None
+
+        return ticks

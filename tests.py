@@ -346,6 +346,195 @@ class TestTaskManager(unittest.TestCase):
                               taskB.subtasks[0].destination]),
                          set([5, 7]))
 
+    def test_task_manager_not_enough_power(self):
+        charging_stations = {999: None}
+        tm = TaskManager(charging_stations)
+        robot = Robot(6)
+        # flat battery
+        robot.kwh_used = robot.kwh_max - 2.0
+        tm.add_robot(robot)
+
+        self.assertIsInstance(robot.current_task, TaskStandby)
+        self.assertEqual(charging_stations[999], None)
+
+        [(robo, tick)] = tm.tick()
+        self.assertEqual(robo, robot)
+        self.assertIsInstance(robo.current_task, TaskStandby)
+        self.assertEqual(tick, None)
+        self.assertEqual(charging_stations[999], None)
+
+    def test_task_manager_not_enough_power_trolly(self):
+        charging_stations = {}
+        tm = TaskManager(charging_stations)
+        robot = Robot(0)
+        task = TaskTrolly(0, 3000)  # 3000 too far for robot
+        tm.add_robot(robot)
+        tm.add_task(task)
+
+        self.assertIsInstance(robot.current_task, TaskStandby)
+
+        # we stay idle after tick
+        [(robo, tick)] = tm.tick()
+        self.assertEqual(robo, robot)
+        self.assertIsInstance(robo.current_task, TaskStandby)
+        self.assertEqual(tick, None)
+
+    def test_task_manager_charger_allocation(self):
+        # needs charge - occupies charger
+        # charges for a while
+        # frees charger
+        charging_stations = {1: None}
+        tm = TaskManager(charging_stations)
+        robot = Robot(6)
+        # flat battery
+        robot.kwh_used = robot.kwh_max - 2.0
+        tm.add_robot(robot)
+
+        self.assertIsInstance(robot.current_task, TaskStandby)
+        self.assertEqual(charging_stations[1], None)
+
+        [(robo, tick)] = tm.tick()
+        self.assertEqual(robo, robot)
+        self.assertIsInstance(robo.current_task, TaskCharge)
+        self.assertIsInstance(tick, SubTaskDriving)
+        self.assertEqual(charging_stations[1], robo)
+
+        [(robo, tick)] = tm.tick()
+        self.assertIsInstance(robot.current_task, TaskCharge)
+        self.assertIsInstance(tick, SubTaskDriving)
+
+        [(robo, tick)] = tm.tick()
+        self.assertIsInstance(robot.current_task, TaskCharge)
+        self.assertIsInstance(tick, SubTaskDriving)
+
+        [(robo, tick)] = tm.tick()
+        self.assertIsInstance(robot.current_task, TaskCharge)
+        self.assertIsInstance(tick, SubTaskDriving)
+
+        [(robo, tick)] = tm.tick()
+        self.assertIsInstance(robot.current_task, TaskCharge)
+        self.assertIsInstance(tick, SubTaskDriving)
+
+        [(robo, tick)] = tm.tick()
+        self.assertIsInstance(robot.current_task, TaskCharge)
+        self.assertIsInstance(tick, SubTaskCharging)
+        self.assertIsInstance(charging_stations[1], Robot)
+
+        for _ in range(98):
+            tm.tick()
+
+        [(robo, tick)] = tm.tick()
+        self.assertIsInstance(robot.current_task, TaskCharge)
+        self.assertIsInstance(tick, SubTaskCharging)
+
+        # after last charge tick, station is free
+        self.assertEqual(charging_stations[1], None)
+
+        [(robo, tick)] = tm.tick()
+        self.assertIsInstance(robot.current_task, TaskStandby)
+        self.assertEqual(tick, None)
+        self.assertEqual(charging_stations[1], None)
+
+    def test_task_manager_charger_allocation_multi(self):
+        charging_locations = {1: None, 10: None}
+        task_manager = TaskManager(charging_locations)
+        robotAt06 = Robot(6)
+        robotAt16 = Robot(16)
+        # flat battery
+        robotAt06.kwh_used = robotAt06.kwh_max - 2
+        robotAt16.kwh_used = robotAt16.kwh_max - 2
+        task_manager.add_robot(robotAt06)
+        task_manager.add_robot(robotAt16)
+
+        self.assertIsInstance(robotAt06.current_task, TaskStandby)
+        self.assertIsInstance(robotAt16.current_task, TaskStandby)
+        self.assertEqual(charging_locations[1], None)
+        self.assertEqual(charging_locations[10], None)
+
+        [(robo1, robo1_subtask),
+         (robo2, robo2_subtask)] = task_manager.tick()
+        self.assertEqual(robo1, robotAt06)
+        self.assertEqual(robo2, robotAt16)
+        self.assertIsInstance(robotAt06.current_task, TaskCharge)
+        self.assertIsInstance(robotAt16.current_task, TaskCharge)
+        self.assertIsInstance(robo1_subtask, SubTaskDriving)
+        self.assertIsInstance(robo2_subtask, SubTaskDriving)
+        self.assertEqual(charging_locations[1], robotAt06)
+        self.assertEqual(charging_locations[10], robotAt16)
+
+    def test_task_manager_trolly_allocation_multi(self):
+        charging_locations = {}
+        task_manager = TaskManager(charging_locations)
+        robotAt06 = Robot(6)
+        robotAt16 = Robot(16)
+
+        task_manager.add_robot(robotAt06)
+        task_manager.add_robot(robotAt16)
+
+        self.assertIsInstance(robotAt06.current_task, TaskStandby)
+        self.assertIsInstance(robotAt16.current_task, TaskStandby)
+
+        [(robo1, robo1_subtask),
+         (robo2, robo2_subtask)] = task_manager.tick()
+
+        self.assertEqual(robo1, robotAt06)
+        self.assertEqual(robo2, robotAt16)
+
+        self.assertIsInstance(robotAt06.current_task, TaskStandby)
+        self.assertIsInstance(robotAt16.current_task, TaskStandby)
+
+        # move a trylly from 10 to 25
+        trolly_task10to25 = TaskTrolly(10, 25)
+        trolly_task1to2 = TaskTrolly(1, 2)
+        task_manager.add_task(trolly_task10to25)
+        task_manager.add_task(trolly_task1to2)
+
+        for _ in range(6 - 1):
+            [(robo1, robo1_subtask),
+             (robo2, robo2_subtask)] = task_manager.tick()
+            self.assertIsInstance(robo1_subtask, SubTaskDriving)
+            self.assertIsInstance(robo2_subtask, SubTaskDriving)
+
+        # check we're executing the expected tasks
+        self.assertEqual(robotAt06.current_task, trolly_task1to2)
+        self.assertEqual(robotAt16.current_task, trolly_task10to25)
+
+        # at tick 6 robotAt6 has reached trolly_task1to2
+        [(robo1, robo1_subtask),
+         (robo2, robo2_subtask)] = task_manager.tick()
+        self.assertIsInstance(robo1_subtask, SubTaskAttaching)
+        self.assertIsInstance(robo2_subtask, SubTaskDriving)
+
+        # at tick 7 robotAt16 has reached trolly_task10to25
+        [(robo1, robo1_subtask),
+         (robo2, robo2_subtask)] = task_manager.tick()
+        self.assertIsInstance(robo1_subtask, SubTaskDriving)
+        self.assertIsInstance(robo2_subtask, SubTaskAttaching)
+
+        [(robo1, robo1_subtask),
+         (robo2, robo2_subtask)] = task_manager.tick()
+        self.assertIsInstance(robo1_subtask, SubTaskDetaching)
+        self.assertIsInstance(robo2_subtask, SubTaskDriving)
+
+        # robotAt6 has finished, but robotAt16 has to get to 25
+        for _ in range(14):
+            [(robo1, robo1_subtask),
+             (robo2, robo2_subtask)] = task_manager.tick()
+            self.assertEqual(robo1_subtask, None)
+            self.assertIsInstance(robo2_subtask, SubTaskDriving)
+
+        # finally robotAt16 makes it to 25
+        [(robo1, robo1_subtask),
+         (robo2, robo2_subtask)] = task_manager.tick()
+        self.assertEqual(robo1_subtask, None)
+        self.assertIsInstance(robo2_subtask, SubTaskDetaching)
+
+        # nothing more to do
+        [(robo1, robo1_subtask),
+         (robo2, robo2_subtask)] = task_manager.tick()
+        self.assertEqual(robo1_subtask, None)
+        self.assertEqual(robo2_subtask, None)
+
 
 if __name__ == '__main__':
     unittest.main()
